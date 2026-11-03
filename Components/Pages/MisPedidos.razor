@@ -1,0 +1,65 @@
+@page "/mis-pedidos"
+@inject ApiClient Api
+@inject Sesion Sesion
+@inject NavigationManager Nav
+
+<PageTitle>Mis pedidos - TiendaTech</PageTitle>
+
+<div class="container py-4">
+    <h1 class="h3 mb-3"><i class="bi bi-bag-check"></i> Mis pedidos</h1>
+    <Alerta Mensaje="@error" />
+
+    @if (pedidos is null)
+    {
+        if (error is null)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+    }
+    else if (pedidos.Count == 0)
+    {
+        <div class="text-center py-5">
+            <i class="bi bi-bag fs-1 text-muted"></i>
+            <p class="mt-2">Aún no tienes pedidos.</p>
+            <a class="btn btn-primary" href="/catalogo">Empezar a comprar</a>
+        </div>
+    }
+    else
+    {
+        <div class="list-group">
+            @foreach (var p in pedidos)
+            {
+                <a class="list-group-item list-group-item-action tt-pedido" href="@($"/mis-pedidos/{p.Id}")">
+                    <div>
+                        <div class="fw-semibold">@p.NroPedido</div>
+                        <small class="text-muted">@Formato.Fecha(p.FechaPedido) · @Formato.Entrega(p.TipoEntrega) · @p.Items producto(s)</small>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold">@Formato.Soles(p.Total)</div>
+                        <EstadoBadge Estado="@p.Estado" />
+                        @if (p.Estado == "PENDIENTE_PAGO" && p.FechaExpiracion > DateTimeOffset.UtcNow)
+                        {
+                            <div><span class="btn btn-sm btn-success mt-1" @onclick:stopPropagation @onclick:preventDefault @onclick="@(() => Nav.NavigateTo($"/pago/{p.Id}"))">Pagar ahora</span></div>
+                        }
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<PedidoResumen>? pedidos;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Sesion.Autenticado)
+        {
+            Nav.NavigateTo("/login?volver=%2Fmis-pedidos");
+            return;
+        }
+        try { pedidos = await Api.PedidosAsync(); }
+        catch (ApiException e) { error = e.Message; }
+    }
+}

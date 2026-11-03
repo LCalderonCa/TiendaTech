@@ -1,0 +1,181 @@
+@page "/pago/{Id:long}"
+@implements IDisposable
+@inject ApiClient Api
+@inject Sesion Sesion
+@inject NavigationManager Nav
+
+<PageTitle>Pagar pedido - TiendaTech</PageTitle>
+
+<div class="container py-4" style="max-width: 900px">
+    <Alerta Mensaje="@error" AlCerrar="() => error = null" />
+
+    @if (pedido is null)
+    {
+        if (error is null)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+    }
+    else if (pedido.Estado != "PENDIENTE_PAGO" || restante <= TimeSpan.Zero)
+    {
+        <div class="card text-center p-4">
+            @if (pedido.Estado == "PENDIENTE_PAGO")
+            {
+                <i class="bi bi-hourglass-bottom fs-1 text-secondary"></i>
+                <h1 class="h4 mt-2">El tiempo para pagar venció</h1>
+                <p>En menos de un minuto el pedido pasará a <strong>Expirado</strong>, se liberará el stock y los productos volverán a tu carrito.</p>
+            }
+            else
+            {
+                <h1 class="h4">Pedido @pedido.NroPedido</h1>
+                <p>Estado actual: <EstadoBadge Estado="@pedido.Estado" /></p>
+            }
+            <div class="d-flex gap-2 justify-content-center">
+                <a class="btn btn-primary" href="@($"/mis-pedidos/{pedido.Id}")">Ver pedido</a>
+                <a class="btn btn-outline-primary" href="/carrito">Ir al carrito</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+            <h1 class="h3 m-0">Pagar pedido @pedido.NroPedido</h1>
+            <div class="tt-cuenta-regresiva @(restante.TotalMinutes < 5 ? "urgente" : "")">
+                <i class="bi bi-clock"></i> Tiempo para pagar: <strong>@(restante.ToString("mm\\:ss"))</strong>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-7">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="h5">Método de pago</h2>
+                        @foreach (var m in metodos)
+                        {
+                            <label class="tt-opcion mb-2 @(metodo == m.Clave ? "activa" : "")">
+                                <input type="radio" name="metodo" checked="@(metodo == m.Clave)" @onchange="() => metodo = m.Clave" />
+                                <i class="bi @m.Icono fs-4"></i>
+                                <div><div class="fw-semibold">@m.Texto</div><small class="text-muted">@m.Detalle</small></div>
+                            </label>
+                        }
+
+                        @if (pedido.TipoComprobante == "FACTURA")
+                        {
+                            <h2 class="h6 mt-3">Factura a nombre de</h2>
+                            <select class="form-select" @bind="rucId">
+                                @foreach (var f in facturacion)
+                                {
+                                    <option value="@f.Id">@f.Ruc - @f.RazonSocial</option>
+                                }
+                            </select>
+                        }
+
+                        <div class="alert alert-info small mt-3 mb-0">
+                            <i class="bi bi-info-circle"></i> Pasarela <strong>simulada</strong> para el proyecto: no se solicitan ni se envían datos de tarjetas.
+                            El pago se aprueba al confirmar.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="card tt-resumen">
+                    <div class="card-body">
+                        <h2 class="h5">Resumen</h2>
+                        @foreach (var l in pedido.Lineas)
+                        {
+                            <div class="d-flex justify-content-between small mb-1"><span>@l.Cantidad × @l.Nombre</span><span class="ms-2 text-nowrap">@Formato.Soles(l.Subtotal)</span></div>
+                        }
+                        <hr />
+                        <div class="d-flex justify-content-between"><span>Subtotal</span><span>@Formato.Soles(pedido.Subtotal)</span></div>
+                        @if (pedido.Descuento > 0)
+                        {
+                            <div class="d-flex justify-content-between text-success"><span>Cupón @pedido.Cupon</span><span>- @Formato.Soles(pedido.Descuento)</span></div>
+                        }
+                        <div class="d-flex justify-content-between"><span>Envío</span><span>@(pedido.CostoEnvio == 0 ? "Gratis" : Formato.Soles(pedido.CostoEnvio))</span></div>
+                        <hr />
+                        <div class="d-flex justify-content-between fw-bold fs-5"><span>Total</span><span>@Formato.Soles(pedido.Total)</span></div>
+                        <button class="btn btn-success btn-lg w-100 mt-3" disabled="@(pagando || (pedido.TipoComprobante == "FACTURA" && rucId == 0))" @onclick="Pagar">
+                            @if (pagando) { <span class="spinner-border spinner-border-sm"></span> }
+                            Pagar @Formato.Soles(pedido.Total)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public long Id { get; set; }
+    [SupplyParameterFromQuery] public long? Ruc { get; set; }
+
+    private record Metodo(string Clave, string Valor, string? Sub, string Texto, string Detalle, string Icono);
+
+    private static readonly List<Metodo> metodos =
+    [
+        new("credito-visa", "TARJETA_CREDITO", "VISA", "Tarjeta de crédito Visa", "Cuotas sin intereses en bancos afiliados", "bi-credit-card"),
+        new("credito-mc", "TARJETA_CREDITO", "MASTERCARD", "Tarjeta de crédito Mastercard", "Pago inmediato", "bi-credit-card-2-front"),
+        new("debito", "TARJETA_DEBITO", "VISA", "Tarjeta de débito", "Visa o Mastercard", "bi-credit-card-2-back"),
+        new("yape", "BILLETERA_DIGITAL", "YAPE", "Yape", "Billetera digital", "bi-phone"),
+        new("plin", "BILLETERA_DIGITAL", "PLIN", "Plin", "Billetera digital", "bi-phone-vibrate"),
+        new("transferencia", "TRANSFERENCIA", "BCP", "Transferencia bancaria", "Confirmación inmediata (simulada)", "bi-bank"),
+        new("efectivo", "EFECTIVO", "PAGOEFECTIVO", "Efectivo con PagoEfectivo", "Agentes y bodegas", "bi-cash-coin"),
+    ];
+
+    private PedidoDetalle? pedido;
+    private List<FacturacionItem> facturacion = [];
+    private string metodo = "credito-visa";
+    private long rucId;
+    private string? error;
+    private bool pagando;
+    private TimeSpan restante;
+    private System.Threading.Timer? reloj;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Sesion.Autenticado)
+        {
+            Nav.NavigateTo("/login?volver=" + Uri.EscapeDataString($"/pago/{Id}"));
+            return;
+        }
+        try
+        {
+            pedido = await Api.PedidoAsync(Id);
+            if (pedido.TipoComprobante == "FACTURA")
+            {
+                facturacion = await Api.FacturacionAsync();
+                rucId = Ruc ?? facturacion.FirstOrDefault(f => f.Predeterminado)?.Id ?? facturacion.FirstOrDefault()?.Id ?? 0;
+            }
+            Tic();
+            reloj = new System.Threading.Timer(_ => InvokeAsync(() => { Tic(); StateHasChanged(); }), null, 1000, 1000);
+        }
+        catch (ApiException e) { error = e.Message; }
+    }
+
+    private void Tic()
+    {
+        if (pedido is null) return;
+        restante = pedido.FechaExpiracion - DateTimeOffset.UtcNow;
+        if (restante < TimeSpan.Zero) restante = TimeSpan.Zero;
+    }
+
+    private async Task Pagar()
+    {
+        var m = metodos.First(x => x.Clave == metodo);
+        pagando = true;
+        error = null;
+        try
+        {
+            var pagado = await Api.PagarAsync(Id, new PagoRequest(m.Valor, m.Sub, pedido!.TipoComprobante == "FACTURA" ? rucId : null));
+            Nav.NavigateTo($"/mis-pedidos/{pagado.Id}?pagado=true");
+        }
+        catch (ApiException e)
+        {
+            error = e.Message;
+            try { pedido = await Api.PedidoAsync(Id); Tic(); } catch (ApiException) { }
+        }
+        finally { pagando = false; }
+    }
+
+    public void Dispose() => reloj?.Dispose();
+}

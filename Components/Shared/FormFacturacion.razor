@@ -1,0 +1,59 @@
+@inject ApiClient Api
+
+<EditForm Model="modelo" OnValidSubmit="Guardar" class="tt-subform">
+    <DataAnnotationsValidator />
+    <Alerta Mensaje="@error" />
+    <div class="row g-2">
+        <div class="col-md-4">
+            <label class="form-label">RUC</label>
+            <InputText class="form-control" @bind-Value="modelo.Ruc" maxlength="11" />
+            <ValidationMessage For="() => modelo.Ruc" />
+        </div>
+        <div class="col-md-8">
+            <label class="form-label">Razón social</label>
+            <InputText class="form-control" @bind-Value="modelo.RazonSocial" />
+            <ValidationMessage For="() => modelo.RazonSocial" />
+        </div>
+        <div class="col-12">
+            <label class="form-label">Dirección fiscal</label>
+            <InputText class="form-control" @bind-Value="modelo.DireccionFiscal" />
+            <ValidationMessage For="() => modelo.DireccionFiscal" />
+        </div>
+        <div class="col-12 form-check ms-1">
+            <InputCheckbox class="form-check-input" id="ruc-pred" @bind-Value="modelo.Predeterminado" />
+            <label class="form-check-label" for="ruc-pred">Usar como RUC principal</label>
+        </div>
+    </div>
+    <div class="mt-3 d-flex gap-2">
+        <button class="btn btn-primary" type="submit" disabled="@guardando">
+            @if (guardando) { <span class="spinner-border spinner-border-sm"></span> } Guardar RUC
+        </button>
+        @if (AlCancelar.HasDelegate)
+        {
+            <button class="btn btn-outline-secondary" type="button" @onclick="AlCancelar">Cancelar</button>
+        }
+    </div>
+</EditForm>
+
+@code {
+    [Parameter] public EventCallback<FacturacionItem> AlGuardar { get; set; }
+    [Parameter] public EventCallback AlCancelar { get; set; }
+
+    private FacturacionForm modelo = new();
+    private string? error;
+    private bool guardando;
+
+    private async Task Guardar()
+    {
+        guardando = true;
+        error = null;
+        try
+        {
+            var f = await Api.AgregarFacturacionAsync(modelo);
+            modelo = new();
+            await AlGuardar.InvokeAsync(f);
+        }
+        catch (ApiException e) { error = e.Message; }
+        finally { guardando = false; }
+    }
+}

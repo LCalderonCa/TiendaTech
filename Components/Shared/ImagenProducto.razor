@@ -1,0 +1,17 @@
+@if (string.IsNullOrEmpty(Url) || error)
+{
+    <div class="tt-img-vacia @Clase"><i class="bi bi-image"></i></div>
+}
+else
+{
+    <img src="@Url" alt="@Alt" class="@Clase" loading="lazy" @onerror="() => error = true" />
+}
+
+@code {
+    [Parameter] public string? Url { get; set; }
+    [Parameter] public string? Alt { get; set; }
+    [Parameter] public string Clase { get; set; } = "";
+    private bool error;
+
+    protected override void OnParametersSet() => error = false;
+}

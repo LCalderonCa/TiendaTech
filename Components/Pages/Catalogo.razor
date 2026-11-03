@@ -1,0 +1,192 @@
+@page "/catalogo"
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Catálogo - TiendaTech</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+        <div>
+            <h1 class="h3 m-0">@Titulo</h1>
+            @if (pagina is not null)
+            {
+                <small class="text-muted">@pagina.Total producto(s)</small>
+            }
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <label class="text-muted small text-nowrap" for="orden">Ordenar por</label>
+            <select id="orden" class="form-select form-select-sm" value="@(Orden ?? "recientes")" @onchange="e => Ir(orden: e.Value?.ToString(), pagina: 0)">
+                <option value="recientes">Más recientes</option>
+                <option value="precio_asc">Menor precio</option>
+                <option value="precio_desc">Mayor precio</option>
+                <option value="nombre">Nombre</option>
+            </select>
+        </div>
+    </div>
+
+    <Alerta Mensaje="@error" />
+
+    <div class="row g-4">
+        <aside class="col-lg-3">
+            <div class="card tt-filtros">
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(Q))
+                    {
+                        <div class="mb-3">
+                            <span class="badge text-bg-light border">Búsqueda: "@Q" <a href="@Url(q: "")" class="ms-1"><i class="bi bi-x"></i></a></span>
+                        </div>
+                    }
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="solo-ofertas" checked="@Ofertas" @onchange="e => Ir(ofertas: (bool)(e.Value ?? false), pagina: 0)" />
+                        <label class="form-check-label" for="solo-ofertas">Solo ofertas</label>
+                    </div>
+
+                    <h6 class="fw-bold">Categorías</h6>
+                    <ul class="list-unstyled tt-lista-filtro">
+                        <li><a class="@(string.IsNullOrEmpty(Categoria) ? "activo" : "")" href="@Url(categoria: "")">Todas</a></li>
+                        @foreach (var c in categorias)
+                        {
+                            <li>
+                                <a class="@(Categoria == c.Slug ? "activo" : "")" href="@Url(categoria: c.Slug)">@c.Nombre</a>
+                                <ul class="list-unstyled ms-3">
+                                    @foreach (var h in c.Hijas ?? [])
+                                    {
+                                        <li><a class="@(Categoria == h.Slug ? "activo" : "")" href="@Url(categoria: h.Slug)">@h.Nombre</a></li>
+                                    }
+                                </ul>
+                            </li>
+                        }
+                    </ul>
+
+                    <h6 class="fw-bold mt-3">Marcas</h6>
+                    <ul class="list-unstyled tt-lista-filtro">
+                        <li><a class="@(Marca is null ? "activo" : "")" href="@Url(marca: 0)">Todas</a></li>
+                        @foreach (var m in marcas)
+                        {
+                            <li><a class="@(Marca == m.Id ? "activo" : "")" href="@Url(marca: m.Id)">@m.Nombre</a></li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </aside>
+
+        <section class="col-lg-9">
+            @if (cargando)
+            {
+                <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+            }
+            else if (pagina is not null && pagina.Items.Count == 0)
+            {
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-search fs-1"></i>
+                    <p class="mt-2">No encontramos productos con esos filtros.</p>
+                    <a class="btn btn-outline-primary" href="/catalogo">Ver todo el catálogo</a>
+                </div>
+            }
+            else if (pagina is not null)
+            {
+                <div class="row g-3">
+                    @foreach (var p in pagina.Items)
+                    {
+                        <div class="col-6 col-md-4"><TarjetaProducto Producto="p" /></div>
+                    }
+                </div>
+
+                if (pagina.TotalPaginas > 1)
+                {
+                    <nav class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item @(pagina.Page == 0 ? "disabled" : "")">
+                                <a class="page-link" href="@Url(pagina: pagina.Page - 1)">Anterior</a>
+                            </li>
+                            @for (var i = 0; i < pagina.TotalPaginas; i++)
+                            {
+                                var n = i;
+                                <li class="page-item @(n == pagina.Page ? "active" : "")"><a class="page-link" href="@Url(pagina: n)">@(n + 1)</a></li>
+                            }
+                            <li class="page-item @(pagina.Page >= pagina.TotalPaginas - 1 ? "disabled" : "")">
+                                <a class="page-link" href="@Url(pagina: pagina.Page + 1)">Siguiente</a>
+                            </li>
+                        </ul>
+                    </nav>
+                }
+            }
+        </section>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Categoria { get; set; }
+    [SupplyParameterFromQuery] public long? Marca { get; set; }
+    [SupplyParameterFromQuery] public string? Q { get; set; }
+    [SupplyParameterFromQuery] public bool Ofertas { get; set; }
+    [SupplyParameterFromQuery] public string? Orden { get; set; }
+    [SupplyParameterFromQuery(Name = "pagina")] public int NumPagina { get; set; }
+
+    private List<CategoriaNodo> categorias = [];
+    private List<MarcaItem> marcas = [];
+    private Pagina<ProductoCard>? pagina;
+    private bool cargando = true;
+    private string? error;
+
+    private string Titulo =>
+        !string.IsNullOrEmpty(Q) ? $"Resultados para \"{Q}\""
+        : NombreCategoria(Categoria) ?? (Ofertas ? "Ofertas" : "Catálogo");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            categorias = await Api.CategoriasAsync();
+            marcas = await Api.MarcasAsync();
+        }
+        catch (ApiException e) { error = e.Message; }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        cargando = true;
+        error = null;
+        try
+        {
+            pagina = await Api.ProductosAsync(Categoria, Marca, Q, Ofertas, Orden, NumPagina);
+        }
+        catch (ApiException e) { error = e.Message; pagina = null; }
+        cargando = false;
+    }
+
+    private string? NombreCategoria(string? slug)
+    {
+        if (string.IsNullOrEmpty(slug)) return null;
+        foreach (var c in categorias)
+        {
+            if (c.Slug == slug) return c.Nombre;
+            var h = c.Hijas?.FirstOrDefault(x => x.Slug == slug);
+            if (h is not null) return h.Nombre;
+        }
+        return null;
+    }
+
+    /// <summary>URL del catalogo cambiando solo los filtros indicados ("" o 0 = quitar filtro).</summary>
+    private string Url(string? categoria = null, long? marca = null, string? q = null, bool? ofertas = null, string? orden = null, int? pagina = null)
+    {
+        var cat = categoria ?? Categoria;
+        var mar = marca ?? Marca;
+        var bus = q ?? Q;
+        var ofe = ofertas ?? Ofertas;
+        var ord = orden ?? Orden;
+        var pag = pagina ?? (categoria is null && marca is null && q is null && ofertas is null && orden is null ? NumPagina : 0);
+        return Nav.GetUriWithQueryParameters("/catalogo", new Dictionary<string, object?>
+        {
+            ["categoria"] = string.IsNullOrEmpty(cat) ? null : cat,
+            ["marca"] = mar is null or 0 ? null : mar,
+            ["q"] = string.IsNullOrEmpty(bus) ? null : bus,
+            ["ofertas"] = ofe ? true : null,
+            ["orden"] = string.IsNullOrEmpty(ord) || ord == "recientes" ? null : ord,
+            ["pagina"] = pag > 0 ? pag : null
+        });
+    }
+
+    private void Ir(string? orden = null, bool? ofertas = null, int? pagina = null) =>
+        Nav.NavigateTo(Url(orden: orden, ofertas: ofertas, pagina: pagina));
+}

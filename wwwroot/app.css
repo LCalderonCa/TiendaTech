@@ -1,0 +1,97 @@
+:root {
+    --tt-primario: #1e3a8a;
+    --tt-primario-2: #2563eb;
+    --tt-acento: #f59e0b;
+    --tt-fondo: #f5f7fb;
+    --tt-texto: #1f2937;
+}
+
+html, body { min-height: 100%; }
+body {
+    background: var(--tt-fondo);
+    color: var(--tt-texto);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+}
+.tt-main { flex: 1 0 auto; }
+a { color: var(--tt-primario-2); }
+.btn-primary { --bs-btn-bg: var(--tt-primario-2); --bs-btn-border-color: var(--tt-primario-2); }
+
+/* ---------- cabecera ---------- */
+.tt-header { background: linear-gradient(90deg, var(--tt-primario), #1d4ed8); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.tt-brand { font-weight: 800; letter-spacing: .5px; }
+.tt-brand i { color: var(--tt-acento); }
+.tt-header .nav-link, .tt-header .btn-link.nav-link { color: rgba(255,255,255,.9); text-decoration: none; }
+.tt-header .nav-link:hover { color: #fff; }
+.tt-search { border-radius: .5rem; }
+.tt-badge { position: absolute; top: 2px; right: -4px; font-size: .7rem; }
+.tt-megamenu { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; padding: 1rem; min-width: min(640px, 92vw); }
+.tt-megamenu-col { min-width: 150px; }
+.tt-megamenu .dropdown-header { color: var(--tt-primario); padding-left: 1rem; text-decoration: none; display: block; }
+.dropdown-menu.show { position: absolute; }
+
+/* ---------- portada ---------- */
+.tt-hero { background: radial-gradient(circle at 80% 20%, #3b82f6, var(--tt-primario) 60%); color: #fff; }
+.tt-hero-icono { font-size: 11rem; opacity: .9; color: var(--tt-acento); }
+.tt-cat { border: 0; box-shadow: 0 1px 4px rgba(0,0,0,.08); color: var(--tt-texto); transition: transform .15s; }
+.tt-cat:hover { transform: translateY(-3px); color: var(--tt-primario-2); }
+
+/* ---------- tarjetas de producto ---------- */
+.tt-card { border: 0; box-shadow: 0 1px 4px rgba(0,0,0,.08); color: var(--tt-texto); transition: box-shadow .15s, transform .15s; overflow: hidden; }
+.tt-card:hover { box-shadow: 0 6px 18px rgba(0,0,0,.12); transform: translateY(-2px); }
+.tt-card-img { position: relative; aspect-ratio: 8 / 7; background: #fff; display: flex; align-items: center; justify-content: center; }
+.tt-card-img img, .tt-card-img .tt-img-vacia { width: 100%; height: 100%; object-fit: contain; }
+.tt-card-oferta { position: absolute; top: .5rem; left: .5rem; }
+.tt-card-nombre { font-weight: 600; font-size: .95rem; line-height: 1.25; margin: .2rem 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tt-precio-actual { font-weight: 800; color: #b91c1c; font-size: 1.15rem; }
+.tt-precio-antes { color: #6b7280; font-size: .85rem; text-decoration: line-through; }
+.tt-estrellas { color: var(--tt-acento); font-size: .85rem; }
+.tt-img-vacia { display: flex; align-items: center; justify-content: center; background: #e5e7eb; color: #9ca3af; font-size: 2rem; min-height: 80px; }
+
+/* ---------- catalogo ---------- */
+.tt-filtros { border: 0; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.tt-lista-filtro a { color: var(--tt-texto); text-decoration: none; display: inline-block; padding: .1rem 0; }
+.tt-lista-filtro a:hover { color: var(--tt-primario-2); }
+.tt-lista-filtro a.activo { color: var(--tt-primario-2); font-weight: 700; }
+
+/* ---------- producto ---------- */
+.tt-galeria { border: 0; }
+.tt-galeria-principal { width: 100%; aspect-ratio: 8 / 7; object-fit: contain; background: #fff; }
+.tt-miniatura { width: 76px; height: 66px; padding: 0; border: 2px solid transparent; border-radius: .4rem; overflow: hidden; background: #fff; }
+.tt-miniatura img, .tt-miniatura .tt-img-vacia { width: 100%; height: 100%; object-fit: cover; min-height: 0; font-size: 1rem; }
+.tt-miniatura.activa { border-color: var(--tt-primario-2); }
+.tt-disponibilidad { background: #f8fafc; }
+.tt-cantidad { width: 130px; flex-shrink: 0; }
+.w-40 { width: 40%; }
+
+/* ---------- carrito / checkout ---------- */
+.tt-item { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.tt-item-img { width: 72px; height: 64px; object-fit: contain; border-radius: .4rem; background: #fff; flex-shrink: 0; }
+.tt-item .tt-img-vacia.tt-item-img { font-size: 1.2rem; min-height: 0; }
+.tt-item-precio { min-width: 110px; }
+.tt-resumen { border: 0; box-shadow: 0 1px 6px rgba(0,0,0,.08); top: 80px; }
+.tt-paso { display: inline-flex; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--tt-primario-2); color: #fff; font-size: .9rem; align-items: center; justify-content: center; margin-right: .3rem; }
+.tt-opcion { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; border: 1px solid #d1d5db; border-radius: .6rem; background: #fff; cursor: pointer; width: 100%; }
+.tt-opcion.activa { border-color: var(--tt-primario-2); box-shadow: 0 0 0 2px rgba(37,99,235,.15); background: #eff6ff; }
+.tt-opcion input[type=radio] { accent-color: var(--tt-primario-2); }
+.tt-subform { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: .6rem; padding: 1rem; margin-top: .5rem; }
+
+/* ---------- pago ---------- */
+.tt-cuenta-regresiva { background: #fef3c7; color: #92400e; padding: .4rem .9rem; border-radius: 2rem; }
+.tt-cuenta-regresiva.urgente { background: #fee2e2; color: #991b1b; }
+
+/* ---------- pedidos ---------- */
+.tt-pedido { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.tt-timeline { list-style: none; padding-left: 1rem; border-left: 2px solid #cbd5e1; margin: 0; }
+.tt-timeline li { position: relative; padding: 0 0 1rem 1rem; }
+.tt-timeline li::before { content: ""; position: absolute; left: -1.43rem; top: .3rem; width: .8rem; height: .8rem; border-radius: 50%; background: var(--tt-primario-2); }
+
+/* ---------- pie ---------- */
+.tt-footer { background: #0f172a; color: #cbd5e1; }
+
+/* ---------- errores de Blazor ---------- */
+#blazor-error-ui { background: #fef3c7; bottom: 0; box-shadow: 0 -1px 2px rgba(0,0,0,.2); display: none; left: 0; padding: .6rem 1.25rem .7rem 1.25rem; position: fixed; width: 100%; z-index: 1000; }
+#blazor-error-ui .dismiss { cursor: pointer; position: absolute; right: .75rem; top: .5rem; }
+.validation-message { color: #dc3545; font-size: .85rem; }
+.invalid { border-color: #dc3545; }

@@ -1,0 +1,60 @@
+######################
+# .NET build
+######################
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+publish/
+*.pdb
+
+######################
+# Visual Studio / Rider / VS Code
+######################
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.DotSettings.user
+
+######################
+# Pruebas y cobertura
+######################
+[Tt]est[Rr]esult*/
+coverage*.json
+coverage*.xml
+
+######################
+# Configuracion local / secretos
+######################
+appsettings.*.local.json
+*.local.json
+.env
+
+######################
+# NuGet
+######################
+*.nupkg
+packages/
+!**/packages/build/
+
+######################
+# Sistema operativo
+######################
+.DS_Store
+Thumbs.db
+desktop.ini
+
+######################
+# Se versionan (no ignorar):
+#   wwwroot/Image/Productos/  (imagenes referenciadas por el seed)
+######################

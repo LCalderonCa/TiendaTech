@@ -1,0 +1,276 @@
+@page "/checkout"
+@inject ApiClient Api
+@inject Sesion Sesion
+@inject NavigationManager Nav
+
+<PageTitle>Finalizar compra - TiendaTech</PageTitle>
+
+<div class="container py-4">
+    <h1 class="h3 mb-3">Finalizar compra</h1>
+    <Alerta Mensaje="@error" AlCerrar="() => error = null" />
+
+    @if (cargando)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-lg-8">
+                @* ---------------- 1. Entrega ---------------- *@
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h2 class="h5"><span class="tt-paso">1</span> ¿Cómo quieres recibir tu pedido?</h2>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="tt-opcion @(form.TipoEntrega == "DELIVERY" ? "activa" : "")">
+                                    <input type="radio" name="entrega" checked="@(form.TipoEntrega == "DELIVERY")" @onchange='() => Cambiar(() => form.TipoEntrega = "DELIVERY")' />
+                                    <i class="bi bi-truck fs-4"></i>
+                                    <div><div class="fw-semibold">Delivery</div><small class="text-muted">Gratis desde S/ 299, si no S/ 15</small></div>
+                                </label>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="tt-opcion @(form.TipoEntrega == "RECOJO_TIENDA" ? "activa" : "")">
+                                    <input type="radio" name="entrega" checked="@(form.TipoEntrega == "RECOJO_TIENDA")" @onchange='() => Cambiar(() => form.TipoEntrega = "RECOJO_TIENDA")' />
+                                    <i class="bi bi-shop fs-4"></i>
+                                    <div><div class="fw-semibold">Recojo en tienda</div><small class="text-muted">Gratis</small></div>
+                                </label>
+                            </div>
+                        </div>
+
+                        @if (form.TipoEntrega == "DELIVERY")
+                        {
+                            foreach (var d in direcciones)
+                            {
+                                <label class="tt-opcion mb-2 @(form.DireccionId == d.Id ? "activa" : "")">
+                                    <input type="radio" name="direccion" checked="@(form.DireccionId == d.Id)" @onchange="() => form.DireccionId = d.Id" />
+                                    <div>
+                                        <div class="fw-semibold">@d.Alias @if (d.Predeterminada) { <span class="badge text-bg-light border">Principal</span> }</div>
+                                        <div class="small">@d.Direccion, @d.Ubigeo</div>
+                                        @if (!string.IsNullOrEmpty(d.Referencia)) { <div class="small text-muted">Ref.: @d.Referencia</div> }
+                                    </div>
+                                </label>
+                            }
+                            if (nuevaDireccion || direcciones.Count == 0)
+                            {
+                                <FormDireccion AlGuardar="DireccionGuardada" AlCancelar="@(direcciones.Count > 0 ? EventCallback.Factory.Create(this, () => nuevaDireccion = false) : default)" />
+                            }
+                            else
+                            {
+                                <button class="btn btn-outline-primary btn-sm" @onclick="() => nuevaDireccion = true"><i class="bi bi-plus"></i> Nueva dirección</button>
+                            }
+                        }
+                        else
+                        {
+                            foreach (var t in tiendas)
+                            {
+                                <label class="tt-opcion mb-2 @(form.TiendaId == t.Id ? "activa" : "")">
+                                    <input type="radio" name="tienda" checked="@(form.TiendaId == t.Id)" @onchange="() => form.TiendaId = t.Id" />
+                                    <div>
+                                        <div class="fw-semibold">@t.Nombre</div>
+                                        <div class="small">@t.Direccion (@t.Distrito)</div>
+                                    </div>
+                                </label>
+                            }
+                            <small class="text-muted">El stock se valida en la tienda elegida al confirmar.</small>
+                        }
+                    </div>
+                </div>
+
+                @* ---------------- 2. Comprobante ---------------- *@
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h2 class="h5"><span class="tt-paso">2</span> Comprobante de pago</h2>
+                        <div class="btn-group mb-3" role="group">
+                            <button class="btn @(form.TipoComprobante == "BOLETA" ? "btn-primary" : "btn-outline-primary")" @onclick='() => form.TipoComprobante = "BOLETA"'>Boleta</button>
+                            <button class="btn @(form.TipoComprobante == "FACTURA" ? "btn-primary" : "btn-outline-primary")" @onclick='() => form.TipoComprobante = "FACTURA"'>Factura</button>
+                        </div>
+                        @if (form.TipoComprobante == "BOLETA")
+                        {
+                            <div class="small">Boleta a nombre de <strong>@perfil?.Nombres @perfil?.Apellidos</strong> (@perfil?.TipoDocumento @perfil?.NumeroDocumento)</div>
+                        }
+                        else
+                        {
+                            foreach (var f in facturacion)
+                            {
+                                <label class="tt-opcion mb-2 @(form.DatoFacturacionId == f.Id ? "activa" : "")">
+                                    <input type="radio" name="ruc" checked="@(form.DatoFacturacionId == f.Id)" @onchange="() => form.DatoFacturacionId = f.Id" />
+                                    <div>
+                                        <div class="fw-semibold">RUC @f.Ruc</div>
+                                        <div class="small">@f.RazonSocial — @f.DireccionFiscal</div>
+                                    </div>
+                                </label>
+                            }
+                            if (nuevoRuc || facturacion.Count == 0)
+                            {
+                                <FormFacturacion AlGuardar="RucGuardado" AlCancelar="@(facturacion.Count > 0 ? EventCallback.Factory.Create(this, () => nuevoRuc = false) : default)" />
+                            }
+                            else
+                            {
+                                <button class="btn btn-outline-primary btn-sm" @onclick="() => nuevoRuc = true"><i class="bi bi-plus"></i> Nuevo RUC</button>
+                            }
+                        }
+                    </div>
+                </div>
+
+                @* ---------------- 3. Cupon y notas ---------------- *@
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h2 class="h5"><span class="tt-paso">3</span> Cupón y observaciones</h2>
+                        <div class="input-group mb-2" style="max-width: 420px">
+                            <input class="form-control text-uppercase" placeholder="Código de cupón" @bind="cuponIngresado" />
+                            <button class="btn btn-outline-secondary" @onclick="AplicarCupon">Aplicar</button>
+                            @if (!string.IsNullOrEmpty(form.CuponCodigo))
+                            {
+                                <button class="btn btn-outline-danger" @onclick="QuitarCupon" title="Quitar cupón"><i class="bi bi-x"></i></button>
+                            }
+                        </div>
+                        @if (resumen?.MensajeCupon is not null)
+                        {
+                            <div class="small @(resumen.Cupon is null ? "text-danger" : "text-success")">@resumen.MensajeCupon</div>
+                        }
+                        <textarea class="form-control mt-3" rows="2" maxlength="500" placeholder="Observaciones para la entrega (opcional)" @bind="form.Observaciones"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            @* ---------------- Resumen ---------------- *@
+            <div class="col-lg-4">
+                <div class="card tt-resumen sticky-lg-top">
+                    <div class="card-body">
+                        <h2 class="h5">Tu pedido</h2>
+                        @if (resumen is not null)
+                        {
+                            foreach (var l in resumen.Lineas)
+                            {
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <span>@l.Cantidad × @l.Nombre @if (l.TipoPrecio == "OFERTA") { <span class="badge bg-danger">Oferta</span> }</span>
+                                    <span class="text-nowrap ms-2">@Formato.Soles(l.Subtotal)</span>
+                                </div>
+                            }
+                            <hr />
+                            <div class="d-flex justify-content-between"><span>Subtotal</span><span>@Formato.Soles(resumen.Subtotal)</span></div>
+                            if (resumen.Descuento > 0)
+                            {
+                                <div class="d-flex justify-content-between text-success"><span>Cupón @resumen.Cupon</span><span>- @Formato.Soles(resumen.Descuento)</span></div>
+                            }
+                            <div class="d-flex justify-content-between"><span>Envío</span><span>@(resumen.CostoEnvio == 0 ? "Gratis" : Formato.Soles(resumen.CostoEnvio))</span></div>
+                            <hr />
+                            <div class="d-flex justify-content-between fw-bold fs-5"><span>Total</span><span>@Formato.Soles(resumen.Total)</span></div>
+                            <div class="small text-muted text-end">Incluye IGV @Formato.Soles(resumen.Igv)</div>
+                        }
+                        <button class="btn btn-warning w-100 mt-3" disabled="@(!PuedeConfirmar || confirmando)" @onclick="Confirmar">
+                            @if (confirmando) { <span class="spinner-border spinner-border-sm"></span> }
+                            Confirmar pedido
+                        </button>
+                        <div class="small text-muted mt-2"><i class="bi bi-clock"></i> Al confirmar reservamos tu stock por 30 minutos mientras pagas.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly CheckoutForm form = new();
+    private List<DireccionItem> direcciones = [];
+    private List<TiendaItem> tiendas = [];
+    private List<FacturacionItem> facturacion = [];
+    private Perfil? perfil;
+    private ResumenCheckout? resumen;
+    private string? error, cuponIngresado;
+    private bool cargando = true, confirmando, nuevaDireccion, nuevoRuc;
+
+    private bool PuedeConfirmar =>
+        resumen is not null && resumen.Lineas.Count > 0
+        && (form.TipoEntrega == "DELIVERY" ? form.DireccionId is not null : form.TiendaId is not null)
+        && (form.TipoComprobante == "BOLETA" || form.DatoFacturacionId is not null);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Sesion.Autenticado)
+        {
+            Nav.NavigateTo("/login?volver=%2Fcheckout");
+            return;
+        }
+        try
+        {
+            perfil = await Api.PerfilAsync();
+            direcciones = await Api.DireccionesAsync();
+            tiendas = await Api.TiendasAsync();
+            facturacion = await Api.FacturacionAsync();
+            form.DireccionId = direcciones.FirstOrDefault(d => d.Predeterminada)?.Id ?? direcciones.FirstOrDefault()?.Id;
+            form.TiendaId = tiendas.FirstOrDefault()?.Id;
+            form.DatoFacturacionId = facturacion.FirstOrDefault(f => f.Predeterminado)?.Id ?? facturacion.FirstOrDefault()?.Id;
+            await Recalcular();
+        }
+        catch (ApiException e) { error = e.Message; }
+        cargando = false;
+    }
+
+    private async Task Recalcular()
+    {
+        try
+        {
+            resumen = await Api.ResumenAsync(form);
+        }
+        catch (ApiException e)
+        {
+            error = e.Message;
+            resumen = null;
+        }
+    }
+
+    private async Task Cambiar(Action cambio)
+    {
+        cambio();
+        await Recalcular();
+    }
+
+    private async Task AplicarCupon()
+    {
+        error = null;
+        form.CuponCodigo = string.IsNullOrWhiteSpace(cuponIngresado) ? null : cuponIngresado.Trim().ToUpperInvariant();
+        await Recalcular();
+        if (resumen is not null && resumen.Cupon is null) form.CuponCodigo = null;   // cupon invalido: no se envia
+    }
+
+    private async Task QuitarCupon()
+    {
+        cuponIngresado = null;
+        form.CuponCodigo = null;
+        await Recalcular();
+    }
+
+    private void DireccionGuardada(DireccionItem d)
+    {
+        direcciones.Add(d);
+        form.DireccionId = d.Id;
+        nuevaDireccion = false;
+    }
+
+    private void RucGuardado(FacturacionItem f)
+    {
+        facturacion.Add(f);
+        form.DatoFacturacionId = f.Id;
+        nuevoRuc = false;
+    }
+
+    private async Task Confirmar()
+    {
+        confirmando = true;
+        error = null;
+        try
+        {
+            var pedido = await Api.ConfirmarPedidoAsync(form);
+            var ruc = form.TipoComprobante == "FACTURA" ? $"?ruc={form.DatoFacturacionId}" : "";
+            Nav.NavigateTo($"/pago/{pedido.Id}{ruc}");
+        }
+        catch (ApiException e)
+        {
+            error = e.Message;
+            await Recalcular();
+        }
+        finally { confirmando = false; }
+    }
+}

@@ -1,0 +1,17 @@
+@if (!string.IsNullOrEmpty(Mensaje))
+{
+    <div class="alert alert-@Tipo d-flex align-items-start gap-2" role="alert">
+        <i class="bi @(Tipo == "success" ? "bi-check-circle" : Tipo == "info" ? "bi-info-circle" : "bi-exclamation-triangle") mt-1"></i>
+        <div class="flex-grow-1">@Mensaje</div>
+        @if (AlCerrar.HasDelegate)
+        {
+            <button type="button" class="btn-close" aria-label="Cerrar" @onclick="AlCerrar"></button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string? Mensaje { get; set; }
+    [Parameter] public string Tipo { get; set; } = "danger";
+    [Parameter] public EventCallback AlCerrar { get; set; }
+}

@@ -1,0 +1,103 @@
+@page "/registro"
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Crear cuenta - TiendaTech</PageTitle>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-3">Crea tu cuenta</h1>
+                    <Alerta Mensaje="@error" />
+                    <EditForm Model="modelo" OnValidSubmit="Registrar">
+                        <DataAnnotationsValidator />
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Nombres</label>
+                                <InputText class="form-control" @bind-Value="modelo.Nombres" />
+                                <ValidationMessage For="() => modelo.Nombres" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Apellidos</label>
+                                <InputText class="form-control" @bind-Value="modelo.Apellidos" />
+                                <ValidationMessage For="() => modelo.Apellidos" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Documento</label>
+                                <InputSelect class="form-select" @bind-Value="modelo.TipoDocumento">
+                                    <option value="DNI">DNI</option>
+                                    <option value="CE">Carné de extranjería</option>
+                                    <option value="PASAPORTE">Pasaporte</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Número</label>
+                                <InputText class="form-control" @bind-Value="modelo.NumeroDocumento" />
+                                <ValidationMessage For="() => modelo.NumeroDocumento" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Celular</label>
+                                <InputText class="form-control" @bind-Value="modelo.Celular" maxlength="9" />
+                                <ValidationMessage For="() => modelo.Celular" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Correo (será tu usuario)</label>
+                                <InputText class="form-control" @bind-Value="modelo.Email" autocomplete="email" />
+                                <ValidationMessage For="() => modelo.Email" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Contraseña</label>
+                                <InputText type="password" class="form-control" @bind-Value="modelo.Password" autocomplete="new-password" />
+                                <ValidationMessage For="() => modelo.Password" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Repite la contraseña</label>
+                                <InputText type="password" class="form-control" @bind-Value="modelo.Confirmacion" autocomplete="new-password" />
+                                <ValidationMessage For="() => modelo.Confirmacion" />
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <InputCheckbox class="form-check-input" id="publicidad" @bind-Value="modelo.AceptaPublicidad" />
+                                    <label class="form-check-label" for="publicidad">Quiero recibir ofertas y novedades</label>
+                                </div>
+                                <div class="form-check">
+                                    <InputCheckbox class="form-check-input" id="terminos" @bind-Value="modelo.AceptaTerminos" />
+                                    <label class="form-check-label" for="terminos">Acepto los términos y la política de privacidad</label>
+                                </div>
+                                <ValidationMessage For="() => modelo.AceptaTerminos" />
+                            </div>
+                        </div>
+                        <button class="btn btn-primary w-100 mt-4" type="submit" disabled="@cargando">
+                            @if (cargando) { <span class="spinner-border spinner-border-sm"></span> } Crear cuenta
+                        </button>
+                    </EditForm>
+                    <p class="text-center mt-3 mb-0 small">¿Ya tienes cuenta? <a href="/login">Ingresa</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Volver { get; set; }
+
+    private readonly RegistroForm modelo = new();
+    private string? error;
+    private bool cargando;
+
+    private async Task Registrar()
+    {
+        cargando = true;
+        error = null;
+        try
+        {
+            await Api.RegistrarAsync(modelo);
+            await Api.IniciarSesionAsync(new LoginForm { Username = modelo.Email.Trim(), Password = modelo.Password });
+            Nav.NavigateTo(!string.IsNullOrEmpty(Volver) && Volver.StartsWith('/') ? Volver : "/");
+        }
+        catch (ApiException e) { error = e.Message; }
+        finally { cargando = false; }
+    }
+}

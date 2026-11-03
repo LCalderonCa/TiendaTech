@@ -1,0 +1,90 @@
+@page "/"
+@inject ApiClient Api
+
+<PageTitle>TiendaTech - Tecnología al mejor precio</PageTitle>
+
+<section class="tt-hero">
+    <div class="container py-5">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-7">
+                <h1 class="display-5 fw-bold">Tecnología que te acompaña</h1>
+                <p class="lead">Celulares, laptops, televisores, audio y gaming con garantía oficial. Delivery gratis desde S/ 299 o recojo en tienda.</p>
+                <a class="btn btn-warning btn-lg me-2" href="/catalogo?ofertas=true"><i class="bi bi-lightning-charge"></i> Ver ofertas</a>
+                <a class="btn btn-outline-light btn-lg" href="/catalogo">Todo el catálogo</a>
+            </div>
+            <div class="col-lg-5 d-none d-lg-flex justify-content-center">
+                <i class="bi bi-laptop tt-hero-icono"></i>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="container py-4">
+    <Alerta Mensaje="@error" />
+
+    <h2 class="h4 mb-3">Compra por categoría</h2>
+    <div class="row g-3 mb-5">
+        @foreach (var c in categorias)
+        {
+            <div class="col-6 col-md-4 col-lg-2">
+                <a class="tt-cat card h-100 text-decoration-none text-center p-3" href="@($"/catalogo?categoria={c.Slug}")">
+                    <i class="bi @Icono(c.Slug) fs-1"></i>
+                    <div class="fw-semibold mt-2">@c.Nombre</div>
+                </a>
+            </div>
+        }
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h4 m-0">Ofertas destacadas</h2>
+        <a href="/catalogo?ofertas=true">Ver todas <i class="bi bi-arrow-right"></i></a>
+    </div>
+    <div class="row g-3 mb-5">
+        @foreach (var p in ofertas)
+        {
+            <div class="col-6 col-md-4 col-lg-3"><TarjetaProducto Producto="p" /></div>
+        }
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h4 m-0">Lo más nuevo</h2>
+        <a href="/catalogo">Ver catálogo <i class="bi bi-arrow-right"></i></a>
+    </div>
+    <div class="row g-3">
+        @foreach (var p in nuevos)
+        {
+            <div class="col-6 col-md-4 col-lg-3"><TarjetaProducto Producto="p" /></div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<CategoriaNodo> categorias = [];
+    private List<ProductoCard> ofertas = [];
+    private List<ProductoCard> nuevos = [];
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            categorias = await Api.CategoriasAsync();
+            ofertas = (await Api.ProductosAsync(null, null, null, true, "precio_desc", 0, 8)).Items;
+            nuevos = (await Api.ProductosAsync(null, null, null, false, "recientes", 0, 8)).Items;
+        }
+        catch (ApiException e) { error = e.Message; }
+    }
+
+    private static string Icono(string slug) => slug switch
+    {
+        "celulares-y-tablets" or "celulares" => "bi-phone",
+        "computo" or "laptops" => "bi-laptop",
+        "tv-y-video" or "televisores" => "bi-tv",
+        "audio" or "audifonos" => "bi-headphones",
+        "wearables" or "smartwatch" => "bi-smartwatch",
+        "gaming" or "consolas" => "bi-controller",
+        "tablets" => "bi-tablet",
+        "parlantes" => "bi-speaker",
+        _ => "bi-box-seam"
+    };
+}

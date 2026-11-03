@@ -1,0 +1,76 @@
+@inject ApiClient Api
+
+<EditForm Model="modelo" OnValidSubmit="Guardar" class="tt-subform">
+    <DataAnnotationsValidator />
+    <Alerta Mensaje="@error" />
+    <div class="row g-2">
+        <div class="col-md-4">
+            <label class="form-label">Nombre</label>
+            <InputText class="form-control" @bind-Value="modelo.Alias" placeholder="Casa, Oficina..." />
+            <ValidationMessage For="() => modelo.Alias" />
+        </div>
+        <div class="col-md-8">
+            <label class="form-label">Distrito</label>
+            <InputSelect class="form-select" @bind-Value="modelo.UbigeoId">
+                <option value="0">Elige el distrito...</option>
+                @foreach (var u in ubigeos)
+                {
+                    <option value="@u.Id">@u.Texto</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="() => modelo.UbigeoId" />
+        </div>
+        <div class="col-12">
+            <label class="form-label">Dirección</label>
+            <InputText class="form-control" @bind-Value="modelo.Direccion" placeholder="Av. / Calle / Jr., número, dpto." />
+            <ValidationMessage For="() => modelo.Direccion" />
+        </div>
+        <div class="col-12">
+            <label class="form-label">Referencia (opcional)</label>
+            <InputText class="form-control" @bind-Value="modelo.Referencia" />
+        </div>
+        <div class="col-12 form-check ms-1">
+            <InputCheckbox class="form-check-input" id="dir-pred" @bind-Value="modelo.Predeterminada" />
+            <label class="form-check-label" for="dir-pred">Usar como dirección principal</label>
+        </div>
+    </div>
+    <div class="mt-3 d-flex gap-2">
+        <button class="btn btn-primary" type="submit" disabled="@guardando">
+            @if (guardando) { <span class="spinner-border spinner-border-sm"></span> } Guardar dirección
+        </button>
+        @if (AlCancelar.HasDelegate)
+        {
+            <button class="btn btn-outline-secondary" type="button" @onclick="AlCancelar">Cancelar</button>
+        }
+    </div>
+</EditForm>
+
+@code {
+    [Parameter] public EventCallback<DireccionItem> AlGuardar { get; set; }
+    [Parameter] public EventCallback AlCancelar { get; set; }
+
+    private DireccionForm modelo = new();
+    private List<UbigeoItem> ubigeos = [];
+    private string? error;
+    private bool guardando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { ubigeos = await Api.UbigeosAsync(); }
+        catch (ApiException e) { error = e.Message; }
+    }
+
+    private async Task Guardar()
+    {
+        guardando = true;
+        error = null;
+        try
+        {
+            var d = await Api.AgregarDireccionAsync(modelo);
+            modelo = new();
+            await AlGuardar.InvokeAsync(d);
+        }
+        catch (ApiException e) { error = e.Message; }
+        finally { guardando = false; }
+    }
+}

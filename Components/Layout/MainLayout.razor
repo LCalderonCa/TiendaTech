@@ -1,0 +1,176 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject Sesion Sesion
+@inject ApiClient Api
+@inject NavigationManager Nav
+
+<header class="tt-header sticky-top">
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand tt-brand" href="/"><i class="bi bi-cpu"></i> TiendaTech</a>
+
+            <button class="navbar-toggler" type="button" @onclick="() => menuAbierto = !menuAbierto" aria-label="Menú">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse @(menuAbierto ? "show" : "")">
+                <ul class="navbar-nav me-3">
+                    <li class="nav-item dropdown">
+                        <button class="nav-link dropdown-toggle btn btn-link" @onclick="() => categoriasAbiertas = !categoriasAbiertas">
+                            <i class="bi bi-grid"></i> Categorías
+                        </button>
+                        @if (categoriasAbiertas)
+                        {
+                            <div class="dropdown-menu show tt-megamenu">
+                                @foreach (var c in categorias)
+                                {
+                                    <div class="tt-megamenu-col">
+                                        <a class="dropdown-header fw-bold" href="@($"/catalogo?categoria={c.Slug}")" @onclick="CerrarMenus">@c.Nombre</a>
+                                        @foreach (var h in c.Hijas ?? [])
+                                        {
+                                            <a class="dropdown-item" href="@($"/catalogo?categoria={h.Slug}")" @onclick="CerrarMenus">@h.Nombre</a>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </li>
+                    <li class="nav-item"><a class="nav-link" href="/catalogo?ofertas=true" @onclick="CerrarMenus"><i class="bi bi-tag"></i> Ofertas</a></li>
+                </ul>
+
+                <form class="d-flex flex-grow-1 me-lg-3 my-2 my-lg-0" @onsubmit="Buscar" @onsubmit:preventDefault>
+                    <input class="form-control tt-search" type="search" placeholder="Buscar celulares, laptops, marcas..." @bind="busqueda" />
+                    <button class="btn btn-warning ms-1" type="submit" aria-label="Buscar"><i class="bi bi-search"></i></button>
+                </form>
+
+                <ul class="navbar-nav align-items-lg-center">
+                    @if (Sesion.Autenticado)
+                    {
+                        <li class="nav-item dropdown">
+                            <button class="nav-link dropdown-toggle btn btn-link" @onclick="() => usuarioAbierto = !usuarioAbierto">
+                                <i class="bi bi-person-circle"></i> Hola, @Sesion.Nombre
+                            </button>
+                            @if (usuarioAbierto)
+                            {
+                                <div class="dropdown-menu dropdown-menu-end show">
+                                    <a class="dropdown-item" href="/mis-pedidos" @onclick="CerrarMenus"><i class="bi bi-bag-check"></i> Mis pedidos</a>
+                                    <a class="dropdown-item" href="/mi-cuenta" @onclick="CerrarMenus"><i class="bi bi-person-gear"></i> Mi cuenta</a>
+                                    <div class="dropdown-divider"></div>
+                                    <button class="dropdown-item" @onclick="Salir"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button>
+                                </div>
+                            }
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="nav-item"><a class="nav-link" href="/login" @onclick="CerrarMenus"><i class="bi bi-person"></i> Ingresar</a></li>
+                    }
+                    <li class="nav-item">
+                        <a class="nav-link position-relative" href="/carrito" @onclick="CerrarMenus" aria-label="Carrito">
+                            <i class="bi bi-cart3 fs-5"></i>
+                            @if (Sesion.ItemsCarrito > 0)
+                            {
+                                <span class="badge rounded-pill bg-warning text-dark tt-badge">@Sesion.ItemsCarrito</span>
+                            }
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<main class="tt-main" @onclick="CerrarMenusSiAbiertos">
+    @if (!Sesion.Cargada)
+    {
+        <div class="container py-5 text-center text-muted"><div class="spinner-border"></div></div>
+    }
+    else
+    {
+        @Body
+    }
+</main>
+
+<footer class="tt-footer">
+    <div class="container py-4 d-flex flex-wrap justify-content-between gap-3">
+        <div>
+            <div class="fw-bold"><i class="bi bi-cpu"></i> TiendaTech</div>
+            <small>Proyecto académico — Desarrollo de Servicios Web</small>
+        </div>
+        <div class="small">
+            <div><i class="bi bi-truck"></i> Delivery gratis desde S/ 299</div>
+            <div><i class="bi bi-shop"></i> Recojo gratis en tienda</div>
+            <div><i class="bi bi-clock-history"></i> Tienes 30 minutos para pagar tu pedido</div>
+        </div>
+    </div>
+</footer>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Ocurrió un error inesperado. <a href="." class="reload">Recargar</a> <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private List<CategoriaNodo> categorias = [];
+    private bool menuAbierto, categoriasAbiertas, usuarioAbierto;
+    private string? busqueda;
+
+    protected override void OnInitialized()
+    {
+        Sesion.Cambio += Refrescar;
+        Nav.LocationChanged += AlNavegar;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await Sesion.CargarAsync();
+        try
+        {
+            categorias = await Api.CategoriasAsync();
+            if (Sesion.Autenticado)
+            {
+                var carrito = await Api.CarritoAsync();
+                Sesion.ActualizarCarrito(carrito.CantidadActiva);
+            }
+        }
+        catch (ApiException)
+        {
+            // el backend puede no estar levantado; cada pagina muestra su propio error
+        }
+        StateHasChanged();
+    }
+
+    private void Buscar()
+    {
+        CerrarMenus();
+        Nav.NavigateTo("/catalogo?q=" + Uri.EscapeDataString(busqueda ?? ""));
+    }
+
+    private async Task Salir()
+    {
+        CerrarMenus();
+        await Sesion.CerrarAsync();
+        Nav.NavigateTo("/");
+    }
+
+    private void CerrarMenus() => menuAbierto = categoriasAbiertas = usuarioAbierto = false;
+
+    private void CerrarMenusSiAbiertos()
+    {
+        if (categoriasAbiertas || usuarioAbierto) CerrarMenus();
+    }
+
+    private void AlNavegar(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        CerrarMenus();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void Refrescar() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Sesion.Cambio -= Refrescar;
+        Nav.LocationChanged -= AlNavegar;
+    }
+}

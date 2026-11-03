@@ -1,0 +1,112 @@
+@page "/mi-cuenta"
+@inject ApiClient Api
+@inject Sesion Sesion
+@inject NavigationManager Nav
+
+<PageTitle>Mi cuenta - TiendaTech</PageTitle>
+
+<div class="container py-4">
+    <h1 class="h3 mb-3"><i class="bi bi-person-gear"></i> Mi cuenta</h1>
+    <Alerta Mensaje="@error" />
+
+    @if (perfil is not null)
+    {
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="h5">@perfil.Nombres @perfil.Apellidos</h2>
+                        <div class="small text-muted mb-2">Cliente @perfil.Codigo</div>
+                        <div><i class="bi bi-envelope"></i> @perfil.Email</div>
+                        <div><i class="bi bi-person-vcard"></i> @perfil.TipoDocumento @perfil.NumeroDocumento</div>
+                        <div><i class="bi bi-phone"></i> @perfil.Celular</div>
+                        <a class="btn btn-outline-primary btn-sm mt-3" href="/mis-pedidos">Ver mis pedidos</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Direcciones de entrega</span>
+                        @if (!nuevaDireccion) { <button class="btn btn-sm btn-outline-primary" @onclick="() => nuevaDireccion = true"><i class="bi bi-plus"></i> Agregar</button> }
+                    </div>
+                    <div class="card-body">
+                        @if (nuevaDireccion)
+                        {
+                            <FormDireccion AlGuardar="DireccionGuardada" AlCancelar="() => nuevaDireccion = false" />
+                        }
+                        @if (direcciones.Count == 0 && !nuevaDireccion) { <p class="text-muted mb-0">No tienes direcciones registradas.</p> }
+                        @foreach (var d in direcciones)
+                        {
+                            <div class="border-bottom py-2">
+                                <span class="fw-semibold">@d.Alias</span>
+                                @if (d.Predeterminada) { <span class="badge text-bg-light border ms-1">Principal</span> }
+                                <div class="small">@d.Direccion, @d.Ubigeo</div>
+                                @if (!string.IsNullOrEmpty(d.Referencia)) { <div class="small text-muted">Ref.: @d.Referencia</div> }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Datos para factura (RUC)</span>
+                        @if (!nuevoRuc) { <button class="btn btn-sm btn-outline-primary" @onclick="() => nuevoRuc = true"><i class="bi bi-plus"></i> Agregar</button> }
+                    </div>
+                    <div class="card-body">
+                        @if (nuevoRuc)
+                        {
+                            <FormFacturacion AlGuardar="RucGuardado" AlCancelar="() => nuevoRuc = false" />
+                        }
+                        @if (facturacion.Count == 0 && !nuevoRuc) { <p class="text-muted mb-0">No tienes RUC registrados.</p> }
+                        @foreach (var f in facturacion)
+                        {
+                            <div class="border-bottom py-2">
+                                <span class="fw-semibold">RUC @f.Ruc</span>
+                                @if (f.Predeterminado) { <span class="badge text-bg-light border ms-1">Principal</span> }
+                                <div class="small">@f.RazonSocial — @f.DireccionFiscal</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private Perfil? perfil;
+    private List<DireccionItem> direcciones = [];
+    private List<FacturacionItem> facturacion = [];
+    private string? error;
+    private bool nuevaDireccion, nuevoRuc;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Sesion.Autenticado)
+        {
+            Nav.NavigateTo("/login?volver=%2Fmi-cuenta");
+            return;
+        }
+        try
+        {
+            perfil = await Api.PerfilAsync();
+            direcciones = await Api.DireccionesAsync();
+            facturacion = await Api.FacturacionAsync();
+        }
+        catch (ApiException e) { error = e.Message; }
+    }
+
+    private async Task DireccionGuardada(DireccionItem _)
+    {
+        nuevaDireccion = false;
+        direcciones = await Api.DireccionesAsync();
+    }
+
+    private async Task RucGuardado(FacturacionItem _)
+    {
+        nuevoRuc = false;
+        facturacion = await Api.FacturacionAsync();
+    }
+}

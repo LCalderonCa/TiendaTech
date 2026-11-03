@@ -1,0 +1,202 @@
+@page "/producto/{Slug}"
+@inject ApiClient Api
+@inject Sesion Sesion
+@inject NavigationManager Nav
+
+<PageTitle>@(producto?.Nombre ?? "Producto") - TiendaTech</PageTitle>
+
+<div class="container py-4">
+    <Alerta Mensaje="@error" />
+
+    @if (producto is null && error is null)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else if (producto is not null)
+    {
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb small">
+                <li class="breadcrumb-item"><a href="/">Inicio</a></li>
+                <li class="breadcrumb-item"><a href="@($"/catalogo?categoria={producto.CategoriaSlug}")">@producto.Categoria</a></li>
+                <li class="breadcrumb-item active">@producto.Nombre</li>
+            </ol>
+        </nav>
+
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="tt-galeria card p-3">
+                    <ImagenProducto Url="@imagenActual" Alt="@producto.Nombre" Clase="tt-galeria-principal" />
+                    @if (producto.Imagenes.Count > 1)
+                    {
+                        <div class="d-flex gap-2 mt-3">
+                            @foreach (var img in producto.Imagenes)
+                            {
+                                <button class="tt-miniatura @(img == imagenActual ? "activa" : "")" @onclick="() => imagenActual = img">
+                                    <ImagenProducto Url="@img" Alt="miniatura" />
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <small class="text-uppercase text-muted fw-semibold">@producto.Marca</small>
+                <h1 class="h3">@producto.Nombre</h1>
+                <div class="text-muted small mb-2">SKU: @producto.Sku @(producto.Modelo is null ? "" : $"· Modelo: {producto.Modelo}")</div>
+                <Estrellas Valor="producto.Rating" Cantidad="producto.Resenas.Count" />
+
+                <div class="my-3"><Precio Lista="producto.PrecioLista" Oferta="producto.PrecioOferta" Grande="true" /></div>
+
+                <div class="card tt-disponibilidad mb-3">
+                    <div class="card-body small">
+                        <div>
+                            <i class="bi bi-truck"></i> Delivery:
+                            @if (producto.StockOnline > 0)
+                            {
+                                <span class="text-success fw-semibold">disponible (@producto.StockOnline u.)</span>
+                            }
+                            else
+                            {
+                                <span class="text-danger">sin stock online</span>
+                            }
+                        </div>
+                        <div class="mt-1">
+                            <i class="bi bi-shop"></i> Recojo en tienda:
+                            @{ var conStock = producto.Tiendas.Where(t => t.Disponible > 0).ToList(); }
+                            @if (conStock.Count == 0)
+                            {
+                                <span class="text-danger">sin stock en tiendas</span>
+                            }
+                            else
+                            {
+                                <span class="text-success fw-semibold">@conStock.Count tienda(s)</span>
+                                <span class="text-muted">(@string.Join(", ", conStock.Select(t => t.Tienda)))</span>
+                            }
+                        </div>
+                        @if (producto.GarantiaMeses is > 0)
+                        {
+                            <div class="mt-1"><i class="bi bi-shield-check"></i> Garantía: @producto.GarantiaMeses meses</div>
+                        }
+                    </div>
+                </div>
+
+                <Alerta Mensaje="@mensaje" Tipo="success" AlCerrar="() => mensaje = null" />
+
+                <div class="d-flex gap-2 align-items-center">
+                    <div class="input-group tt-cantidad">
+                        <button class="btn btn-outline-secondary" @onclick="() => cantidad = Math.Max(1, cantidad - 1)">−</button>
+                        <input class="form-control text-center" value="@cantidad" readonly />
+                        <button class="btn btn-outline-secondary" @onclick="() => cantidad++">+</button>
+                    </div>
+                    <button class="btn btn-warning btn-lg flex-grow-1" disabled="@(agregando || SinStock)" @onclick="Agregar">
+                        @if (agregando) { <span class="spinner-border spinner-border-sm"></span> }
+                        <i class="bi bi-cart-plus"></i> Agregar al carrito
+                    </button>
+                </div>
+                @if (mensaje is not null)
+                {
+                    <a class="btn btn-outline-primary w-100 mt-2" href="/carrito">Ir al carrito <i class="bi bi-arrow-right"></i></a>
+                }
+            </div>
+        </div>
+
+        <div class="row g-4 mt-2">
+            <div class="col-lg-7">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="h5">Descripción</h2>
+                        <p>@producto.Descripcion</p>
+                        @if (!string.IsNullOrWhiteSpace(producto.Especificaciones))
+                        {
+                            <h2 class="h5 mt-3">Especificaciones</h2>
+                            <table class="table table-sm table-striped mb-0">
+                                <tbody>
+                                    @foreach (var linea in producto.Especificaciones.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                                    {
+                                        var partes = linea.Split(':', 2);
+                                        <tr>
+                                            <th class="w-40">@partes[0].Trim()</th>
+                                            <td>@(partes.Length > 1 ? partes[1].Trim() : "")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="h5">Opiniones</h2>
+                        @if (producto.Resenas.Count == 0)
+                        {
+                            <p class="text-muted mb-0">Aún no hay opiniones de este producto.</p>
+                        }
+                        @foreach (var r in producto.Resenas)
+                        {
+                            <div class="border-bottom py-2">
+                                <div class="d-flex justify-content-between">
+                                    <Estrellas Valor="r.Calificacion" />
+                                    <small class="text-muted">@Formato.Fecha(r.Fecha)</small>
+                                </div>
+                                <div class="small fw-semibold">
+                                    @r.Cliente
+                                    @if (r.CompraVerificada)
+                                    {
+                                        <span class="badge text-bg-light border ms-1"><i class="bi bi-patch-check"></i> Compra verificada</span>
+                                    }
+                                </div>
+                                <div class="small">@r.Comentario</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    private ProductoDetalle? producto;
+    private string? imagenActual;
+    private string? error, mensaje;
+    private int cantidad = 1;
+    private bool agregando;
+
+    private bool SinStock => producto is not null && producto.StockOnline <= 0 && producto.Tiendas.All(t => t.Disponible <= 0);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        producto = null;
+        error = mensaje = null;
+        cantidad = 1;
+        try
+        {
+            producto = await Api.ProductoAsync(Slug);
+            imagenActual = producto.Imagenes.FirstOrDefault();
+        }
+        catch (ApiException e) { error = e.Message; }
+    }
+
+    private async Task Agregar()
+    {
+        if (!Sesion.Autenticado)
+        {
+            Nav.NavigateTo("/login?volver=" + Uri.EscapeDataString("/producto/" + Slug));
+            return;
+        }
+        agregando = true;
+        error = mensaje = null;
+        try
+        {
+            await Api.AgregarAlCarritoAsync(producto!.Id, cantidad);
+            mensaje = $"Agregaste {cantidad} × {producto.Nombre} a tu carrito.";
+        }
+        catch (ApiException e) { error = e.Message; }
+        finally { agregando = false; }
+    }
+}

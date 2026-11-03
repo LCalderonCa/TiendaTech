@@ -1,0 +1,71 @@
+@page "/login"
+@inject ApiClient Api
+@inject Sesion Sesion
+@inject NavigationManager Nav
+
+<PageTitle>Ingresar - TiendaTech</PageTitle>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-3 text-center">Ingresa a tu cuenta</h1>
+                    <Alerta Mensaje="@error" />
+                    <EditForm Model="modelo" OnValidSubmit="Ingresar">
+                        <DataAnnotationsValidator />
+                        <div class="mb-3">
+                            <label class="form-label">Correo</label>
+                            <InputText class="form-control" @bind-Value="modelo.Username" autocomplete="username" />
+                            <ValidationMessage For="() => modelo.Username" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Contraseña</label>
+                            <InputText type="password" class="form-control" @bind-Value="modelo.Password" autocomplete="current-password" />
+                            <ValidationMessage For="() => modelo.Password" />
+                        </div>
+                        <button class="btn btn-primary w-100" type="submit" disabled="@cargando">
+                            @if (cargando) { <span class="spinner-border spinner-border-sm"></span> } Ingresar
+                        </button>
+                    </EditForm>
+                    <hr />
+                    <p class="text-center mb-0 small">
+                        ¿No tienes cuenta? <a href="@($"/registro?volver={Uri.EscapeDataString(Volver ?? "/")}")">Regístrate</a>
+                    </p>
+                </div>
+            </div>
+            <p class="text-muted small mt-3 text-center">
+                Clientes de prueba del seed: <code>&lt;login&gt;@@example.com</code> con contraseña <code>user</code> (por ejemplo <code>jorge.gonzales@example.com</code>).
+            </p>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Volver { get; set; }
+
+    private readonly LoginForm modelo = new();
+    private string? error;
+    private bool cargando;
+
+    protected override void OnInitialized()
+    {
+        if (Sesion.Autenticado) Nav.NavigateTo(Destino);
+    }
+
+    private string Destino => !string.IsNullOrEmpty(Volver) && Volver.StartsWith('/') ? Volver : "/";
+
+    private async Task Ingresar()
+    {
+        cargando = true;
+        error = null;
+        try
+        {
+            await Api.IniciarSesionAsync(modelo);
+            Nav.NavigateTo(Destino);
+        }
+        catch (ApiException e) { error = e.Message; }
+        catch (HttpRequestException) { error = "No se pudo completar el inicio de sesión."; }
+        finally { cargando = false; }
+    }
+}

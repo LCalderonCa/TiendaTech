@@ -1,0 +1,19 @@
+@if (Valor is not null)
+{
+    <span class="tt-estrellas" title="@Valor de 5">
+        @for (var i = 1; i <= 5; i++)
+        {
+            var clase = Valor >= i ? "bi-star-fill" : Valor >= i - 0.5 ? "bi-star-half" : "bi-star";
+            <i class="bi @clase"></i>
+        }
+        @if (Cantidad is not null)
+        {
+            <small class="text-muted ms-1">(@Cantidad)</small>
+        }
+    </span>
+}
+
+@code {
+    [Parameter] public double? Valor { get; set; }
+    [Parameter] public long? Cantidad { get; set; }
+}

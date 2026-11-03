@@ -1,0 +1,5 @@
+<span class="badge text-bg-@Formato.ColorEstado(Estado)">@Formato.Estado(Estado)</span>
+
+@code {
+    [Parameter, EditorRequired] public string Estado { get; set; } = "";
+}

@@ -1,0 +1,175 @@
+@page "/mis-pedidos/{Id:long}"
+@inject ApiClient Api
+@inject Sesion Sesion
+@inject NavigationManager Nav
+
+<PageTitle>Pedido @pedido?.NroPedido - TiendaTech</PageTitle>
+
+<div class="container py-4">
+    <a href="/mis-pedidos" class="small"><i class="bi bi-arrow-left"></i> Mis pedidos</a>
+    <Alerta Mensaje="@error" />
+
+    @if (Pagado && pedido?.Estado == "PAGADO")
+    {
+        <div class="alert alert-success mt-3"><i class="bi bi-check-circle"></i> ¡Pago aprobado! Te enviamos el comprobante y te avisaremos cuando tu pedido avance.</div>
+    }
+
+    @if (pedido is null)
+    {
+        if (error is null)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+    }
+    else
+    {
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 my-3">
+            <div>
+                <h1 class="h3 m-0">Pedido @pedido.NroPedido</h1>
+                <small class="text-muted">@Formato.Fecha(pedido.FechaPedido) · @Formato.Entrega(pedido.TipoEntrega) · @(pedido.TipoComprobante == "FACTURA" ? "Factura" : "Boleta")</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="fs-5"><EstadoBadge Estado="@pedido.Estado" /></span>
+                @if (pedido.Estado == "PENDIENTE_PAGO" && pedido.FechaExpiracion > DateTimeOffset.UtcNow)
+                {
+                    <a class="btn btn-success" href="@($"/pago/{pedido.Id}")">Pagar (vence @(Formato.Fecha(pedido.FechaExpiracion)[11..]))</a>
+                }
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card mb-3">
+                    <div class="card-header">Productos</div>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var l in pedido.Lineas)
+                        {
+                            <li class="list-group-item tt-item">
+                                <ImagenProducto Url="@l.Imagen" Alt="@l.Nombre" Clase="tt-item-img" />
+                                <div class="flex-grow-1">
+                                    <a class="fw-semibold text-decoration-none" href="@($"/producto/{l.Slug}")">@l.Nombre</a>
+                                    <div class="small text-muted">
+                                        SKU @l.Sku · @l.Cantidad × @Formato.Soles(l.PrecioUnitario - l.Descuento)
+                                        @if (l.TipoPrecio == "OFERTA")
+                                        {
+                                            <span class="badge bg-danger ms-1">Precio oferta</span>
+                                            <span class="text-decoration-line-through ms-1">@Formato.Soles(l.PrecioUnitario)</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="fw-bold">@Formato.Soles(l.Subtotal)</div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header">Seguimiento</div>
+                    <div class="card-body">
+                        <ul class="tt-timeline">
+                            @foreach (var h in pedido.Historial)
+                            {
+                                <li>
+                                    <div class="d-flex justify-content-between">
+                                        <EstadoBadge Estado="@h.Estado" />
+                                        <small class="text-muted">@Formato.Fecha(h.Fecha)</small>
+                                    </div>
+                                    <div class="small mt-1">@h.Comentario</div>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h2 class="h6">Totales</h2>
+                        <div class="d-flex justify-content-between"><span>Subtotal</span><span>@Formato.Soles(pedido.Subtotal)</span></div>
+                        @if (pedido.Descuento > 0)
+                        {
+                            <div class="d-flex justify-content-between text-success"><span>Cupón @pedido.Cupon</span><span>- @Formato.Soles(pedido.Descuento)</span></div>
+                        }
+                        <div class="d-flex justify-content-between"><span>Envío</span><span>@(pedido.CostoEnvio == 0 ? "Gratis" : Formato.Soles(pedido.CostoEnvio))</span></div>
+                        <hr class="my-2" />
+                        <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>@Formato.Soles(pedido.Total)</span></div>
+                        <div class="small text-muted text-end">IGV incluido @Formato.Soles(pedido.Igv)</div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-body small">
+                        <h2 class="h6">Entrega</h2>
+                        @if (pedido.TipoEntrega == "RECOJO_TIENDA")
+                        {
+                            <div><i class="bi bi-shop"></i> @pedido.TiendaRecojo</div>
+                        }
+                        else if (pedido.Envio is not null)
+                        {
+                            <div><i class="bi bi-geo-alt"></i> @pedido.Envio.Direccion</div>
+                            <div>Estado del envío: <EstadoBadge Estado="@pedido.Envio.Estado" /></div>
+                            if (pedido.Envio.Courier is not null) { <div>Courier: @pedido.Envio.Courier · @pedido.Envio.Tracking</div> }
+                            <div>Fecha estimada: @Formato.Dia(pedido.Envio.FechaEstimada)</div>
+                        }
+                        @if (!string.IsNullOrEmpty(pedido.Observaciones)) { <div class="mt-1 text-muted">Obs.: @pedido.Observaciones</div> }
+                    </div>
+                </div>
+
+                @if (pedido.Pagos.Count > 0)
+                {
+                    <div class="card mb-3">
+                        <div class="card-body small">
+                            <h2 class="h6">Pagos</h2>
+                            @foreach (var g in pedido.Pagos)
+                            {
+                                <div class="d-flex justify-content-between">
+                                    <span>@Formato.Metodo(g.Metodo, g.SubMetodo)</span>
+                                    <EstadoBadge Estado="@g.Estado" />
+                                </div>
+                                <div class="text-muted mb-2">@Formato.Fecha(g.Fecha) · @Formato.Soles(g.Monto) · Op. @g.NroTransaccion</div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (pedido.Comprobantes.Count > 0)
+                {
+                    <div class="card mb-3">
+                        <div class="card-body small">
+                            <h2 class="h6">Comprobantes</h2>
+                            @foreach (var c in pedido.Comprobantes)
+                            {
+                                <div class="d-flex justify-content-between">
+                                    <span class="fw-semibold">@(c.Tipo == "NOTA_CREDITO" ? "Nota de crédito" : c.Tipo == "FACTURA" ? "Factura" : "Boleta") @c.Serie-@c.Numero.ToString("D8")</span>
+                                    <span>@Formato.Soles(c.Total)</span>
+                                </div>
+                                <div class="text-muted">@c.Receptor</div>
+                                <div class="mb-2"><EstadoBadge Estado="@c.EstadoSunat" /> <span class="text-muted">@Formato.Fecha(c.Fecha)</span></div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public long Id { get; set; }
+    [SupplyParameterFromQuery] public bool Pagado { get; set; }
+
+    private PedidoDetalle? pedido;
+    private string? error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Sesion.Autenticado)
+        {
+            Nav.NavigateTo("/login?volver=" + Uri.EscapeDataString($"/mis-pedidos/{Id}"));
+            return;
+        }
+        try { pedido = await Api.PedidoAsync(Id); }
+        catch (ApiException e) { error = e.Message; }
+    }
+}

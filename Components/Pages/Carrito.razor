@@ -1,0 +1,166 @@
+@page "/carrito"
+@inject ApiClient Api
+@inject Sesion Sesion
+@inject NavigationManager Nav
+
+<PageTitle>Carrito - TiendaTech</PageTitle>
+
+<div class="container py-4">
+    <h1 class="h3 mb-3"><i class="bi bi-cart3"></i> Tu carrito</h1>
+    <Alerta Mensaje="@error" AlCerrar="() => error = null" />
+
+    @if (carrito is null)
+    {
+        if (error is null)
+        {
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+        }
+    }
+    else if (!activos.Any() && !guardados.Any())
+    {
+        <div class="text-center py-5">
+            <i class="bi bi-cart-x fs-1 text-muted"></i>
+            <p class="mt-2">Tu carrito está vacío.</p>
+            <a class="btn btn-primary" href="/catalogo">Ver productos</a>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-lg-8">
+                @if (activos.Any())
+                {
+                    <div class="card mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="form-check m-0">
+                                <input class="form-check-input" type="checkbox" id="todos" checked="@(activos.All(i => i.Seleccionado))" @onchange="SeleccionarTodos" disabled="@ocupado" />
+                                <label class="form-check-label" for="todos">Seleccionar todo (@activos.Count)</label>
+                            </div>
+                            <small class="text-muted">Solo los seleccionados pasan a la compra</small>
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            @foreach (var i in activos)
+                            {
+                                <li class="list-group-item tt-item">
+                                    <input class="form-check-input mt-0" type="checkbox" checked="@i.Seleccionado" disabled="@ocupado"
+                                           @onchange="e => Accion(() => Api.ActualizarItemAsync(i.Id, seleccionado: (bool)(e.Value ?? false)))" />
+                                    <a href="@($"/producto/{i.Slug}")"><ImagenProducto Url="@i.Imagen" Alt="@i.Nombre" Clase="tt-item-img" /></a>
+                                    <div class="flex-grow-1">
+                                        <a class="fw-semibold text-decoration-none" href="@($"/producto/{i.Slug}")">@i.Nombre</a>
+                                        <div class="small text-muted">SKU @i.Sku</div>
+                                        @if (i.StockDisponible < i.Cantidad)
+                                        {
+                                            <div class="small text-danger">Stock online disponible: @i.StockDisponible (puedes elegir recojo en tienda)</div>
+                                        }
+                                        <div class="d-flex flex-wrap gap-3 mt-1 small">
+                                            <button class="btn btn-link btn-sm p-0" disabled="@ocupado" @onclick='() => Accion(() => Api.ActualizarItemAsync(i.Id, estado: "GUARDADO"))'>Guardar para después</button>
+                                            <button class="btn btn-link btn-sm p-0 text-danger" disabled="@ocupado" @onclick="() => Accion(() => Api.EliminarItemAsync(i.Id))">Eliminar</button>
+                                        </div>
+                                    </div>
+                                    <div class="input-group input-group-sm tt-cantidad">
+                                        <button class="btn btn-outline-secondary" disabled="@(ocupado || i.Cantidad <= 1)" @onclick="() => Accion(() => Api.ActualizarItemAsync(i.Id, cantidad: i.Cantidad - 1))">−</button>
+                                        <input class="form-control text-center" value="@i.Cantidad" readonly />
+                                        <button class="btn btn-outline-secondary" disabled="@ocupado" @onclick="() => Accion(() => Api.ActualizarItemAsync(i.Id, cantidad: i.Cantidad + 1))">+</button>
+                                    </div>
+                                    <div class="text-end tt-item-precio">
+                                        <div class="fw-bold">@Formato.Soles(i.Subtotal)</div>
+                                        <small class="text-muted">@Formato.Soles(i.Precio) c/u</small>
+                                        @if (i.PrecioOferta is not null)
+                                        {
+                                            <div><small class="text-decoration-line-through text-muted">@Formato.Soles(i.PrecioLista)</small></div>
+                                        }
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+
+                @if (guardados.Any())
+                {
+                    <div class="card">
+                        <div class="card-header">Guardados para después (@guardados.Count)</div>
+                        <ul class="list-group list-group-flush">
+                            @foreach (var i in guardados)
+                            {
+                                <li class="list-group-item tt-item">
+                                    <ImagenProducto Url="@i.Imagen" Alt="@i.Nombre" Clase="tt-item-img" />
+                                    <div class="flex-grow-1">
+                                        <a class="fw-semibold text-decoration-none" href="@($"/producto/{i.Slug}")">@i.Nombre</a>
+                                        <div class="small">@Formato.Soles(i.Precio) · @i.Cantidad u.</div>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-primary" disabled="@ocupado" @onclick='() => Accion(() => Api.ActualizarItemAsync(i.Id, estado: "ACTIVO"))'>Mover al carrito</button>
+                                    <button class="btn btn-sm btn-link text-danger" disabled="@ocupado" @onclick="() => Accion(() => Api.EliminarItemAsync(i.Id))">Eliminar</button>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card tt-resumen sticky-lg-top">
+                    <div class="card-body">
+                        <h2 class="h5">Resumen</h2>
+                        <div class="d-flex justify-content-between"><span>Productos (@carrito.CantidadSeleccionada)</span><span>@Formato.Soles(carrito.SubtotalSeleccionado)</span></div>
+                        <div class="d-flex justify-content-between text-muted small mt-1"><span>Envío</span><span>se calcula en el siguiente paso</span></div>
+                        @if (carrito.SubtotalSeleccionado > 0 && carrito.SubtotalSeleccionado < 299)
+                        {
+                            <div class="small text-info mt-2"><i class="bi bi-truck"></i> Te faltan @Formato.Soles(299 - carrito.SubtotalSeleccionado) para delivery gratis</div>
+                        }
+                        <hr />
+                        <div class="d-flex justify-content-between fw-bold fs-5"><span>Subtotal</span><span>@Formato.Soles(carrito.SubtotalSeleccionado)</span></div>
+                        <button class="btn btn-warning w-100 mt-3" disabled="@(carrito.CantidadSeleccionada == 0 || ocupado)" @onclick='() => Nav.NavigateTo("/checkout")'>
+                            Continuar compra <i class="bi bi-arrow-right"></i>
+                        </button>
+                        <a class="btn btn-link w-100" href="/catalogo">Seguir comprando</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private CarritoDto? carrito;
+    private string? error;
+    private bool ocupado;
+
+    private List<CarritoLinea> activos => carrito?.Items.Where(i => i.Estado == "ACTIVO").ToList() ?? [];
+    private List<CarritoLinea> guardados => carrito?.Items.Where(i => i.Estado == "GUARDADO").ToList() ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Sesion.Autenticado)
+        {
+            Nav.NavigateTo("/login?volver=%2Fcarrito");
+            return;
+        }
+        try { carrito = await Api.CarritoAsync(); }
+        catch (ApiException e) { error = e.Message; }
+    }
+
+    private async Task Accion(Func<Task<CarritoDto>> llamada)
+    {
+        ocupado = true;
+        error = null;
+        try { carrito = await llamada(); }
+        catch (ApiException e) { error = e.Message; }
+        finally { ocupado = false; }
+    }
+
+    private async Task SeleccionarTodos(ChangeEventArgs e)
+    {
+        var valor = (bool)(e.Value ?? false);
+        ocupado = true;
+        try
+        {
+            foreach (var i in activos.Where(i => i.Seleccionado != valor).ToList())
+            {
+                carrito = await Api.ActualizarItemAsync(i.Id, seleccionado: valor);
+            }
+        }
+        catch (ApiException ex) { error = ex.Message; }
+        finally { ocupado = false; }
+    }
+}
